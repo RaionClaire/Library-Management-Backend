@@ -13,6 +13,12 @@ return new class extends Migration
     {
         Schema::create('loans', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('book_id')->index();
+            $table->unsignedBigInteger('member_id')->index();
+            $table->date('loaned_at');
+            $table->date('due_at');
+            $table->date('returned_at')->nullable();
+            $table->string('status', 20);
             $table->timestamps();
         });
     }

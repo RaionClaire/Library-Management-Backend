@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('member_id')->index();
+            $table->boolean('email_due_reminder');
+            $table->boolean('email_overdue_reminder');
             $table->timestamps();
         });
     }

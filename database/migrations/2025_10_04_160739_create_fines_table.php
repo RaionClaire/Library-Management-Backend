@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('fines', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('loan_id')->index();
+            $table->unsignedBigInteger('amount');
+            $table->string('status', 30)->default('unpaid');
+            $table->string('note', 255)->nullable();
             $table->timestamps();
         });
     }
