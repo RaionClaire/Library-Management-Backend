@@ -68,4 +68,56 @@ class Loan extends Model
     {
         return !$this->returned_at && now()->isAfter($this->due_at);
     }
+
+    /**
+     * Check if loan is near due date (within specified days)
+     */
+    public function isNearDueDate(int $days = 3): bool
+    {
+        if ($this->returned_at) {
+            return false;
+        }
+
+        $daysUntilDue = now()->diffInDays($this->due_at, false);
+        return $daysUntilDue >= 0 && $daysUntilDue <= $days;
+    }
+
+    /**
+     * Get days until due date
+     */
+    public function daysUntilDue(): int
+    {
+        if ($this->returned_at) {
+            return 0;
+        }
+
+        return now()->diffInDays($this->due_at, false);
+    }
+
+    /**
+     * Scope for active loans (not returned)
+     */
+    public function scopeActive($query)
+    {
+        return $query->whereNull('returned_at');
+    }
+
+    /**
+     * Scope for near due loans
+     */
+    public function scopeNearDue($query, int $days = 3)
+    {
+        return $query->active()
+            ->where('due_at', '>=', now())
+            ->where('due_at', '<=', now()->addDays($days));
+    }
+
+    /**
+     * Scope for overdue loans
+     */
+    public function scopeOverdue($query)
+    {
+        return $query->active()
+            ->where('due_at', '<', now());
+    }
 }

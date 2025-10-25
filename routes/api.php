@@ -8,6 +8,8 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\FineController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -61,6 +63,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/loans/{loan}', [LoanController::class, 'show']);
         Route::put('/loans/{loan}', [LoanController::class, 'update']);
         Route::delete('/loans/{loan}', [LoanController::class, 'destroy']);
+        Route::post('/loans/{loan}/return', [LoanController::class, 'returnBook']);
+        Route::post('/loans/{loan}/extend', [LoanController::class, 'extendDueDate']);
 
         // Fines Management
         Route::get('/fines', [FineController::class, 'index']);
@@ -68,6 +72,27 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/fines/{fine}', [FineController::class, 'show']);
         Route::put('/fines/{fine}', [FineController::class, 'update']);
         Route::delete('/fines/{fine}', [FineController::class, 'destroy']);
+        Route::post('/fines/{fine}/pay', [FineController::class, 'payFine']);
+        Route::get('/fines/unpaid/summary', [FineController::class, 'getUnpaidFines']);
+        Route::get('/fines/calculate/{loanId}', [FineController::class, 'calculateFine']);
+
+        // Notifications for Admin (view all members)
+        Route::get('/notifications/near-due', [NotificationController::class, 'getAllMembersWithNearDueLoans']);
+        Route::get('/notifications/overdue', [NotificationController::class, 'getAllMembersWithOverdueLoans']);
+
+        // Reports (Admin Only)
+        Route::prefix('reports')->group(function () {
+            Route::get('/loans/statistics', [ReportController::class, 'loanStatistics']);
+            Route::get('/loans/trend', [ReportController::class, 'loanTrend']);
+            Route::get('/books/most-borrowed', [ReportController::class, 'mostBorrowedBooks']);
+            Route::get('/books/inventory', [ReportController::class, 'bookInventory']);
+            Route::get('/books/by-category', [ReportController::class, 'booksByCategory']);
+            Route::get('/members/most-active', [ReportController::class, 'mostActiveMembers']);
+            Route::get('/members/statistics', [ReportController::class, 'memberStatistics']);
+            Route::get('/loans/overdue', [ReportController::class, 'overdueLoans']);
+            Route::get('/fines', [ReportController::class, 'fineReport']);
+            Route::get('/comprehensive', [ReportController::class, 'comprehensiveReport']);
+        });
     });
 
     // ================= Member Only Routes ===============
@@ -80,6 +105,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Member's Fines
         Route::get('/fines', [FineController::class, 'index']);
         Route::get('/fines/{fine}', [FineController::class, 'show']);
+        Route::get('/fines/unpaid/summary', [FineController::class, 'getUnpaidFines']);
+        Route::post('/fines/{fine}/pay', [FineController::class, 'payFine']);
+
+        // Member's Notifications
+        Route::get('/notifications/summary', [NotificationController::class, 'getNotificationsSummary']);
+        Route::get('/notifications/near-due', [NotificationController::class, 'getLoansNearDueDate']);
+        Route::get('/notifications/overdue', [NotificationController::class, 'getOverdueLoans']);
     });
 
     // ================= Shared Routes (Admin & Member) ===============
