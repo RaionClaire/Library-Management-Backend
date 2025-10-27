@@ -12,7 +12,7 @@ class CategoryController extends Controller
      */
     public function index()
     {
-        $categories = Category::all();
+        $categories = Category::withCount('books')->get();
         return response()->json($categories);
     }
 
@@ -23,6 +23,7 @@ class CategoryController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
         ]);
 
         $category = Category::create($request->all());
@@ -57,6 +58,7 @@ class CategoryController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
         ]);
 
         $category = Category::find($id);
@@ -93,5 +95,18 @@ class CategoryController extends Controller
         return response()->json([
             'message' => 'Kategori berhasil dihapus'
         ]);
+    }
+
+    public function getBooksByCategory($id)
+    {
+        $category = Category::with('books')->find($id);
+
+        if (!$category) {
+            return response()->json([
+                'message' => 'Kategori tidak ditemukan'
+            ], 404);
+        }
+
+        return response()->json($category);
     }
 }

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('title', 150);
             $table->string('isbn', 30)->unique();
             $table->string('publisher', 100)->nullable();
-            $table->year('year')->nullable();
+            $table->unsignedSmallInteger('year')->nullable(); // Changed from year() to unsignedSmallInteger (0 to 65535)
             $table->integer('stock')->default(1);
             $table->string('cover_url')->nullable();
             $table->timestamps();

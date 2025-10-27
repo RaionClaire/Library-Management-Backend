@@ -10,6 +10,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\FineController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // ================= Admin Only Routes ===============
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         
+        // Users Management
+        Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/statistics', [UserController::class, 'statistics']);
+        Route::get('/users/{id}', [UserController::class, 'show']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+        Route::patch('/users/{id}/toggle-status', [UserController::class, 'toggleStatus']);
+
         // Authors Management
         Route::get('/authors', [AuthorController::class, 'index']);
         Route::post('/authors', [AuthorController::class, 'store']);
@@ -120,13 +129,19 @@ Route::middleware('auth:sanctum')->group(function () {
         // Books (Read Only for Members)
         Route::get('/books', [BookController::class, 'index']);
         Route::get('/books/{id}', [BookController::class, 'show']);
+        Route::get('/books-total', [BookController::class, 'totalBooks']);
+        Route::get('/books/search', [BookController::class, 'search']);
+        Route::get('/books/filter/category', [BookController::class, 'filterByCategory']);
+        Route::get('/books/filter/author', [BookController::class, 'filterByAuthor']);
 
         // Authors (Read Only for Members)
         Route::get('/authors', [AuthorController::class, 'index']);
         Route::get('/authors/{id}', [AuthorController::class, 'show']);
+        Route::get('/authors/{id}/books', [AuthorController::class, 'getBooksByAuthor']);
 
         // Categories (Read Only for Members)
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{id}', [CategoryController::class, 'show']);
+        Route::get('/categories/{id}/books', [CategoryController::class, 'getBooksByCategory']);
     });
 });

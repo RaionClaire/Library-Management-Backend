@@ -7,6 +7,7 @@ use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use PhpParser\Node\Expr\FuncCall;
 
 class AuthController extends Controller
 {
@@ -130,6 +131,50 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Profile updated successfully',
             'user' => $user->load('role'),
+        ]);
+    }
+
+    public function index(Request $request)
+    {
+        if ($request->boolean('all')) {
+            $users = User::with('role')->get();
+            return response()->json(['data' => $users]);
+        }
+    }
+
+    public function updateRole(Request $request, $id)
+    {
+        $request->validate([
+            'role' => 'required|string|in:admin,member',    
+        ]);
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ], 404);
+        }
+        $role = Role::where('name', $request->role)->first();
+        if (!$role) {
+            return response()->json([
+                'message' => 'Role not found'
+            ], 404);
+        }
+        $user->role_id = $role->id;
+        $user->save();
+        return response()->json([
+            'message' => 'User role updated successfully',
+            'user' => $user->load('role'),
+        ]);
+    }
+
+    public function destroy(Request $request)
+    {
+        $user = $request->user();
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Account deleted successfully'
         ]);
     }
 }

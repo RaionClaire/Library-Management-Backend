@@ -10,7 +10,7 @@ class AuthorController extends Controller
 
     public function index()
     {
-        $authors = Author::all();
+        $authors = Author::withCount('books')->get();
         return response()->json($authors);
     }
 
@@ -21,10 +21,12 @@ class AuthorController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'biography' => 'nullable|string|max:1000',
         ]);
 
         $author = Author::create([
             'name' => $request->name,
+            'biography' => $request->biography,
         ]);
 
         return response()->json([
@@ -82,6 +84,22 @@ class AuthorController extends Controller
 
         return response()->json([
             'message' => 'Penulis berhasil dihapus'
+        ]);
+    }
+
+    public function getBooksByAuthor($id)
+    {
+        $author = Author::with('books')->find($id);
+
+        if (!$author) {
+            return response()->json([
+                'message' => 'Penulis tidak ditemukan'
+            ], 404);
+        }
+
+        return response()->json([
+            'author' => $author->name,
+            'books' => $author->books
         ]);
     }
 }

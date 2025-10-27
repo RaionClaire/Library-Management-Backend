@@ -11,9 +11,16 @@ class SeederDatabase extends Seeder
     public function run(): void
     {
         User::create([
-            'name' => 'Test User',
+            'name' => 'Adinda Salsabila',
             'email' => 'caca@gmail.com',
             'role_id' => 1,
+            'password' => Hash::make('123'),
+        ]);
+
+        User::create([
+            'name' => 'Killua Zoldyck',
+            'email' => 'killua@gmail.com',
+            'role_id' => 2,
             'password' => Hash::make('123'),
         ]);
     }
