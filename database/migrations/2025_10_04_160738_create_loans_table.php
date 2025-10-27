@@ -15,10 +15,13 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('book_id')->index();
             $table->unsignedBigInteger('member_id')->index();
-            $table->date('loaned_at');
-            $table->date('due_at');
+            $table->date('loaned_at')->nullable(); // Null until approved
+            $table->date('due_at')->nullable(); // Calculated when approved
             $table->date('returned_at')->nullable();
-            $table->string('status', 20);
+            $table->string('status', 20); // pending, approved, rejected, borrowed, returned, overdue
+            $table->text('notes')->nullable(); // Rejection reason or admin notes
+            $table->unsignedBigInteger('approved_by')->nullable(); // Admin who approved/rejected
+            $table->timestamp('approved_at')->nullable(); // When approved/rejected
             $table->timestamps();
         });
     }

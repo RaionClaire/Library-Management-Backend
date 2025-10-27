@@ -72,11 +72,12 @@ class Book extends Model
 
     /**
      * Get available copies count
+     * Consider pending, approved, borrowed, and overdue as unavailable
      */
     public function availableCopies(): int
     {
         $loanedCount = $this->loans()
-            ->whereIn('status', ['borrowed', 'overdue'])
+            ->whereIn('status', ['pending', 'approved', 'borrowed', 'overdue'])
             ->count();
         
         return max(0, $this->stock - $loanedCount);

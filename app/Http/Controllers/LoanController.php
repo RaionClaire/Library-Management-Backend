@@ -19,11 +19,16 @@ class LoanController extends Controller
         $user = Auth::user();
         $user->load('role');
         
-        // If admin, show all loans
+        // If admin, show all loans with optional status filter
         if ($user->hasRole('admin')) {
-            $loans = Loan::with(['book.author', 'book.category', 'member.user', 'fine'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(15);
+            $query = Loan::with(['book.author', 'book.category', 'member.user', 'fine', 'approver']);
+            
+            // Filter by status if provided
+            if ($request->has('status')) {
+                $query->where('status', $request->status);
+            }
+            
+            $loans = $query->orderBy('created_at', 'desc')->paginate(15);
         } 
         // If member, show only their loans
         else {
@@ -34,10 +39,15 @@ class LoanController extends Controller
                 ], 404);
             }
             
-            $loans = Loan::with(['book.author', 'book.category', 'fine'])
-                ->where('member_id', $member->id)
-                ->orderBy('created_at', 'desc')
-                ->paginate(15);
+            $query = Loan::with(['book.author', 'book.category', 'fine', 'approver'])
+                ->where('member_id', $member->id);
+            
+            // Filter by status if provided
+            if ($request->has('status')) {
+                $query->where('status', $request->status);
+            }
+            
+            $loans = $query->orderBy('created_at', 'desc')->paginate(15);
         }
 
         return response()->json($loans);
@@ -45,6 +55,7 @@ class LoanController extends Controller
 
     /**
      * Store a newly created resource in storage.
+     * ADMIN ONLY - Direct loan creation (skip approval)
      */
     public function store(Request $request)
     {
@@ -64,16 +75,16 @@ class LoanController extends Controller
         // Check if member already has this book on loan
         $existingLoan = Loan::where('member_id', $request->member_id)
             ->where('book_id', $request->book_id)
-            ->whereIn('status', ['borrowed', 'overdue'])
+            ->whereIn('status', ['pending', 'approved', 'borrowed', 'overdue'])
             ->first();
 
         if ($existingLoan) {
             return response()->json([
-                'message' => 'Member already has this book on loan.'
+                'message' => 'Member already has an active loan or pending request for this book.'
             ], 400);
         }
 
-        // Create loan with automatic due date (+7 days)
+        // Admin creates loan directly (auto-approved)
         $loanedAt = Carbon::now();
         $dueAt = $loanedAt->copy()->addDays(7);
 
@@ -83,11 +94,14 @@ class LoanController extends Controller
             'loaned_at' => $loanedAt,
             'due_at' => $dueAt,
             'status' => 'borrowed',
+            'approved_by' => Auth::id(),
+            'approved_at' => Carbon::now(),
+            'notes' => 'Direct loan by admin',
         ]);
 
         return response()->json([
             'message' => 'Loan created successfully',
-            'loan' => $loan->load(['book.author', 'book.category', 'member.user'])
+            'loan' => $loan->load(['book.author', 'book.category', 'member.user', 'approver'])
         ], 201);
     }
 
@@ -256,6 +270,148 @@ class LoanController extends Controller
         return response()->json([
             'message' => "Loan extended by {$request->days} day(s)",
             'loan' => $loan->load(['book', 'member.user'])
+        ]);
+    }
+
+    /**
+     * Propose a new loan (Member action)
+     */
+    public function proposeLoan(Request $request)
+    {
+        $request->validate([
+            'book_id' => 'required|exists:books,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $user = Auth::user();
+        $member = Member::where('user_id', $user->id)->first();
+        
+        if (!$member) {
+            return response()->json([
+                'message' => 'Member profile not found'
+            ], 404);
+        }
+
+        // Check if book is available
+        $book = Book::findOrFail($request->book_id);
+        if ($book->availableCopies() <= 0) {
+            return response()->json([
+                'message' => 'Book is not available. All copies are currently loaned.'
+            ], 400);
+        }
+
+        // Check if member already has an active request or loan for this book
+        $existingLoan = Loan::where('member_id', $member->id)
+            ->where('book_id', $request->book_id)
+            ->whereIn('status', ['pending', 'approved', 'borrowed', 'overdue'])
+            ->first();
+
+        if ($existingLoan) {
+            $statusMessage = match($existingLoan->status) {
+                'pending' => 'You already have a pending request for this book.',
+                'approved' => 'Your request for this book has been approved. Please pick it up.',
+                'borrowed', 'overdue' => 'You already have this book on loan.',
+                default => 'You have an active request for this book.'
+            };
+            
+            return response()->json([
+                'message' => $statusMessage,
+                'existing_loan' => $existingLoan
+            ], 400);
+        }
+
+        // Create pending loan request
+        $loan = Loan::create([
+            'member_id' => $member->id,
+            'book_id' => $request->book_id,
+            'status' => 'pending',
+            'notes' => $request->notes,
+        ]);
+
+        return response()->json([
+            'message' => 'Loan request submitted successfully. Waiting for admin approval.',
+            'loan' => $loan->load(['book.author', 'book.category'])
+        ], 201);
+    }
+
+    /**
+     * Approve a loan request (Admin only)
+     */
+    public function approveLoan(Request $request, Loan $loan)
+    {
+        if ($loan->status !== 'pending') {
+            return response()->json([
+                'message' => 'Only pending loans can be approved.'
+            ], 400);
+        }
+
+        // Check if book is still available
+        $book = $loan->book;
+        if ($book->availableCopies() <= 0) {
+            return response()->json([
+                'message' => 'Book is no longer available. Please reject this request.'
+            ], 400);
+        }
+
+        // Approve and set loan dates
+        $loanedAt = Carbon::now();
+        $dueAt = $loanedAt->copy()->addDays(7);
+
+        $loan->update([
+            'status' => 'borrowed',
+            'loaned_at' => $loanedAt,
+            'due_at' => $dueAt,
+            'approved_by' => Auth::id(),
+            'approved_at' => Carbon::now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Loan request approved successfully',
+            'loan' => $loan->load(['book.author', 'book.category', 'member.user', 'approver'])
+        ]);
+    }
+
+    /**
+     * Reject a loan request (Admin only)
+     */
+    public function rejectLoan(Request $request, Loan $loan)
+    {
+        $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        if ($loan->status !== 'pending') {
+            return response()->json([
+                'message' => 'Only pending loans can be rejected.'
+            ], 400);
+        }
+
+        $loan->update([
+            'status' => 'rejected',
+            'notes' => $request->reason ?? 'Rejected by admin',
+            'approved_by' => Auth::id(),
+            'approved_at' => Carbon::now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Loan request rejected',
+            'loan' => $loan->load(['book.author', 'book.category', 'member.user', 'approver'])
+        ]);
+    }
+
+    /**
+     * Get all pending loan requests (Admin only)
+     */
+    public function getPendingLoans()
+    {
+        $pendingLoans = Loan::with(['book.author', 'book.category', 'member.user'])
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json([
+            'pending_loans' => $pendingLoans,
+            'total' => $pendingLoans->count()
         ]);
     }
 }

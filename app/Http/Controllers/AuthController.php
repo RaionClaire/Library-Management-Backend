@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Member;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use PhpParser\Node\Expr\FuncCall;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -21,6 +22,8 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:100|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|string|in:admin,member',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:255',
         ]);
 
         $role = Role::where('name', $request->role)->first();
@@ -39,11 +42,22 @@ class AuthController extends Controller
             'status' => true,
         ]);
 
+        // Automatically create member profile if role is member
+        if ($request->role === 'member') {
+            Member::create([
+                'user_id' => $user->id,
+                'code' => 'MBR' . str_pad($user->id, 6, '0', STR_PAD_LEFT), 
+                'phone' => $request->phone ?? null,
+                'address' => $request->address ?? null,
+                'join_date' => Carbon::now(),
+            ]);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'User berhasil dibuat',
-            'user' => $user->load('role'),
+            'user' => $user->load(['role', 'member']),
             'access_token' => $token,
             'token_type' => 'Bearer',
         ], 201);
@@ -159,11 +173,32 @@ class AuthController extends Controller
                 'message' => 'Role not found'
             ], 404);
         }
+
+        $oldRole = $user->role->name;
         $user->role_id = $role->id;
         $user->save();
+
+        // Handle member profile creation/deletion based on role change
+        if ($request->role === 'member' && $oldRole !== 'member') {
+            // Changed to member - create member profile if doesn't exist
+            if (!$user->member) {
+                Member::create([
+                    'user_id' => $user->id,
+                    'code' => 'MBR' . str_pad($user->id, 6, '0', STR_PAD_LEFT),
+                    'join_date' => Carbon::now(),
+                ]);
+            }
+        } elseif ($request->role === 'admin' && $oldRole === 'member') {
+            // Changed from member to admin - optionally delete member profile
+            // Note: Only delete if no loan history exists
+            if ($user->member && $user->member->loans()->count() === 0) {
+                $user->member->delete();
+            }
+        }
+
         return response()->json([
             'message' => 'User role updated successfully',
-            'user' => $user->load('role'),
+            'user' => $user->load(['role', 'member']),
         ]);
     }
 

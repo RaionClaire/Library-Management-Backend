@@ -28,7 +28,6 @@ class FineController extends Controller
             
             $fines = $query->orderBy('created_at', 'desc')->paginate(15);
         } 
-        // If member, show only their fines
         else {
             $member = $user->member;
             if (!$member) {

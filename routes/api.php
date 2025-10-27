@@ -8,6 +8,7 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\FineController;
+use App\Http\Controllers\MemberController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
@@ -68,12 +69,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Loans Management
         Route::get('/loans', [LoanController::class, 'index']);
-        Route::post('/loans', [LoanController::class, 'store']);
+        Route::post('/loans', [LoanController::class, 'store']); // Direct loan creation
         Route::get('/loans/{loan}', [LoanController::class, 'show']);
         Route::put('/loans/{loan}', [LoanController::class, 'update']);
         Route::delete('/loans/{loan}', [LoanController::class, 'destroy']);
         Route::post('/loans/{loan}/return', [LoanController::class, 'returnBook']);
         Route::post('/loans/{loan}/extend', [LoanController::class, 'extendDueDate']);
+        
+        // Loan Approval System
+        Route::get('/loans/pending/all', [LoanController::class, 'getPendingLoans']);
+        Route::post('/loans/{loan}/approve', [LoanController::class, 'approveLoan']);
+        Route::post('/loans/{loan}/reject', [LoanController::class, 'rejectLoan']);
 
         // Fines Management
         Route::get('/fines', [FineController::class, 'index']);
@@ -107,9 +113,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // ================= Member Only Routes ===============
     Route::middleware('role:member')->prefix('member')->group(function () {
         
+        // Member's Profile
+        Route::get('/profile', [MemberController::class, 'profile']);
+        Route::put('/profile', [MemberController::class, 'updateProfile']);
+        Route::get('/statistics', [MemberController::class, 'statistics']);
+
         // Member's Loans
         Route::get('/loans', [LoanController::class, 'index']);
         Route::get('/loans/{loan}', [LoanController::class, 'show']);
+        Route::post('/loans', [LoanController::class, 'proposeLoan']);
 
         // Member's Fines
         Route::get('/fines', [FineController::class, 'index']);

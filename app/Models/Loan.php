@@ -21,6 +21,9 @@ class Loan extends Model
         'due_at',
         'returned_at',
         'status',
+        'notes',
+        'approved_by',
+        'approved_at',
     ];
 
     /**
@@ -34,6 +37,7 @@ class Loan extends Model
             'loaned_at' => 'date',
             'due_at' => 'date',
             'returned_at' => 'date',
+            'approved_at' => 'datetime',
         ];
     }
 
@@ -51,6 +55,14 @@ class Loan extends Model
     public function member()
     {
         return $this->belongsTo(Member::class);
+    }
+
+    /**
+     * Get the admin who approved/rejected the loan.
+     */
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -119,5 +131,29 @@ class Loan extends Model
     {
         return $query->active()
             ->where('due_at', '<', now());
+    }
+
+    /**
+     * Scope for pending loans (awaiting approval)
+     */
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    /**
+     * Scope for approved but not yet picked up
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    /**
+     * Scope for rejected loans
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('status', 'rejected');
     }
 }
