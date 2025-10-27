@@ -59,9 +59,34 @@ class ReportController extends Controller
         $limit = $request->input('limit', 10);
         $period = $request->input('period', 'all'); // all, month, year
         
-        $query = Book::select('books.*', DB::raw('COUNT(loans.id) as loan_count'))
+        $query = Book::select(
+                'books.id',
+                'books.category_id',
+                'books.author_id',
+                'books.title',
+                'books.isbn',
+                'books.publisher',
+                'books.year',
+                'books.stock',
+                'books.cover_url',
+                'books.created_at',
+                'books.updated_at',
+                DB::raw('COUNT(loans.id) as loan_count')
+            )
             ->leftJoin('loans', 'books.id', '=', 'loans.book_id')
-            ->groupBy('books.id');
+            ->groupBy(
+                'books.id',
+                'books.category_id',
+                'books.author_id',
+                'books.title',
+                'books.isbn',
+                'books.publisher',
+                'books.year',
+                'books.stock',
+                'books.cover_url',
+                'books.created_at',
+                'books.updated_at'
+            );
 
         if ($period === 'month') {
             $query->where('loans.loaned_at', '>=', Carbon::now()->startOfMonth());
@@ -87,11 +112,30 @@ class ReportController extends Controller
     public function mostActiveMembers(Request $request)
     {
         $limit = $request->input('limit', 10);
-        $period = $request->input('period', 'all'); // all, month, year
+        $period = $request->input('period', 'all');
         
-        $query = Member::select('members.*', DB::raw('COUNT(loans.id) as loan_count'))
+        $query = Member::select(
+                'members.id',
+                'members.user_id',
+                'members.code',
+                'members.phone',
+                'members.address',
+                'members.join_date',
+                'members.created_at',
+                'members.updated_at',
+                DB::raw('COUNT(loans.id) as loan_count')
+            )
             ->leftJoin('loans', 'members.id', '=', 'loans.member_id')
-            ->groupBy('members.id');
+            ->groupBy(
+                'members.id',
+                'members.user_id',
+                'members.code',
+                'members.phone',
+                'members.address',
+                'members.join_date',
+                'members.created_at',
+                'members.updated_at'
+            );
 
         if ($period === 'month') {
             $query->where('loans.loaned_at', '>=', Carbon::now()->startOfMonth());
